@@ -4,7 +4,11 @@ import numpy as np
 from bitflow.nodes import ops
 
 class Tensor(object):
-    '''所有节点的共同祖先，方便以后拓展一些公有特性'''
+    '''bitflow 里所有数据都以 Tensor 的形式储存，并提供相对统一的接口。
+
+    Tensor 类抽象了“数据”这一概念，保存着“原始数据”及得到最终数据的映射(函数)。对于常量对象，此函数直接返回原始数据。
+
+    Operation 类在实例化时，接受 Tensor 对象作为输出，并创建特定 Tensor，自动设定好映射的函数'''
     def __init__(self, array=None, shape=None, dtype=None, name=None,
                  calc_fn=None):
         if array and not calc_fn and not isinstance(array, np.ndarray):
@@ -38,6 +42,7 @@ class Tensor(object):
         return ops.Mul(self, rhs).gen_tensor()
 
     def __matmul__(self, rhs):
+        '''Python 3.5 的新特性，a @ b 即表示 a.__matmul__(b)，矩阵乘法'''
         return ops.MatMul(self, rhs).gen_tensor()
 
     def __div__(self, rhs):
@@ -46,15 +51,12 @@ class Tensor(object):
     def __pow__(self, rhs):
         return ops.Pow(self, rhs).gen_tensor()
 
-
-
-
     def __str__(self):
-        return "bf.Tensor(`{}`, shape={}, dtype={} at {})".format(
+        return "bf.Tensor(`{}`, shape={}, dtype={}) at {}".format(
             self.name, self.shape, self.dtype, hex(id(self)))
 
     def __repr__(self):
-        return "<bf.Tensor `{}`, shape={}, dtype={} at {}>".format(
+        return "<bf.Tensor `{}`, shape={}, dtype={}, at {}>".format(
             self.name, self.shape, self.dtype, hex(id(self)))
 
 
@@ -70,6 +72,7 @@ class placeholder(Tensor):
     id_at = 0
     def __init__(self, **kwargs):
         def calc_fn():
+            '''placeholder 需要在 run() 时投喂数据，就是在这个函数检查的'''
             if not self.array:
                 raise ValueError(
                     "A placeholder must be fed before do any calculations")
