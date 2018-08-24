@@ -80,3 +80,12 @@ class placeholder(Tensor):
         super().__init__(name='placeholder:{}'.format(placeholder.id_at),
                          calc_fn=calc_fn, **kwargs)
         placeholder.id_at += 1
+
+
+class Variable(Tensor):
+    id_at = 0
+    def __init__(self, **kwargs):
+        super().__init__(name='Variable:{}'.format(Variable.id_at),
+                         calc_fn=calc_fn, **kwargs)
+        Variable.id_at += 1
+
