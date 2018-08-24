@@ -172,8 +172,8 @@ class MulOp(Operation):
         return self._left.forward() * self._right.forward()
 
 
-    '''矩阵乘法 TODO: shape check'''
 class MatmulOp(Operation):
+    '''矩阵乘法 TODO: shape check'''
     def __init__(self, left, right, name='matmul'):
         super().__init__(left, right, name=name)
 
