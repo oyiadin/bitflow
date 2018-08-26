@@ -23,8 +23,7 @@ class Tensor(object):
     def forward(self):
         raise NotImplementedError
 
-    def grad(self, *args):
-        # TODO: 实现偏导
+    def grad(self, partial_derivative_op=None):
         raise NotImplementedError
 
     def __add__(self, rhs):
@@ -84,6 +83,9 @@ class constant(Tensor):
     def forward(self):
         return self._value
 
+    def grad(self, partial_derivative_op=None):
+        return 0
+
 
 class placeholder(Tensor):
     def __init__(self, shape=None, dtype=None, name='placeholder'):
@@ -108,6 +110,9 @@ class placeholder(Tensor):
         ret = self._value
         return ret
 
+    def grad(self, partial_derivative_op=None):
+        return 0
+
     def feed(self, value):
         if not isinstance(value, np.ndarray):
             value = np.array(value)
@@ -127,10 +132,16 @@ class Variable(constant):
     def forward(self):
         return self._value
 
+    def grad(self, partial_derivative_op=None):
+        if self == partial_derivative_op:
+            return 1
+        else:
+            return 0
+
     def set_value(self, value):
         self._value = value
 
-    def get_value(self, value):
+    def get_value(self):
         return self._value
 
 
@@ -154,6 +165,10 @@ class AddOp(Operation):
     def forward(self):
         return self._left.forward() + self._right.forward()
 
+    def grad(self, partial_derivative_op=None):
+        return self._left.grad(partial_derivative_op) \
+               + self._right.grad(partial_derivative_op)
+
 
 class SubOp(Operation):
     def __init__(self, left, right, name='sub'):
@@ -161,6 +176,10 @@ class SubOp(Operation):
 
     def forward(self):
         return self._left.forward() - self._right.forward()
+
+    def grad(self, partial_derivative_op=None):
+        return self._left.grad(partial_derivative_op) \
+               - self._right.grad(partial_derivative_op)
 
 
 class MulOp(Operation):
@@ -171,6 +190,10 @@ class MulOp(Operation):
     def forward(self):
         return self._left.forward() * self._right.forward()
 
+    def grad(self, partial_derivative_op=None):
+        return self._left.grad(partial_derivative_op) * self._right.forward() \
+               + self._right.grad(partial_derivative_op) * self._left.forward()
+
 
 class MatmulOp(Operation):
     '''矩阵乘法 TODO: shape check'''
@@ -180,6 +203,10 @@ class MatmulOp(Operation):
     def forward(self):
         return self._left.forward() @ self._right.forward()
 
+    def grad(self, partial_derivative_op=None):
+        raise NotImplementedError(
+            "operation matmul doesn't support gradient calculating right now")
+
 
 class DivOp(Operation):
     def __init__(self, left, right, name='div'):
@@ -188,12 +215,24 @@ class DivOp(Operation):
     def forward(self):
         return self._left.forward() / self._right.forward()
 
+    def grad(self, partial_derivative_op=None):
+        return (self._left.grad(partial_derivative_op) * self._right.forward() \
+                - self._right.grad(partial_derivative_op) * self._left.forward()) \
+               / self._right.forward() ** 2
+
 
 class PowOp(Operation):
     def __init__(self, left, right, name='pow'):
+        if isinstance(right, np.ndarray) and right.shape != ():
+            raise ArithmeticError('The right hand side object must be a scalar')
+        if not isinstance(right, int):
+            raise ValueError("the argument `power` must be a (int) scalar")
         super().__init__(left, right, name=name)
 
     def forward(self):
-        if self._right.shape != ():
-            raise ArithmeticError('The right hand side object must be a scalar')
         return self._left.forward() ** self._right.forward()
+
+    def grad(self, partial_derivative_op=None):
+        return self._right.forward() * (
+                self._left.forward() ** (self._right.forward() - 1)) \
+               * self._left.grad(partial_derivative_op)
