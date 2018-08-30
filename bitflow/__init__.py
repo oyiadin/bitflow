@@ -10,10 +10,9 @@ from . import models
 Session = session.Session
 Graph = graph.Graph
 
-
 # alias for convenience
-constant    =       ops.constant
-placeholder =       ops.placeholder
+constant    =       ops.Constant
+placeholder =       ops.Placeholder
 Variable    =       ops.Variable
 add         =       ops.AddOp
 minus       = sub = ops.SubOp
