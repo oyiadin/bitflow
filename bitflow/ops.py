@@ -84,7 +84,7 @@ class constant(Tensor):
         return self._value
 
     def grad(self, partial_derivative_op=None):
-        return 0
+        return np.zeros_like(self._value)
 
 
 class placeholder(Tensor):
@@ -111,7 +111,7 @@ class placeholder(Tensor):
         return ret
 
     def grad(self, partial_derivative_op=None):
-        return 0
+        return np.zeros_like(partial_derivative_op._value)
 
     def feed(self, value):
         if not isinstance(value, np.ndarray):
@@ -134,9 +134,9 @@ class Variable(constant):
 
     def grad(self, partial_derivative_op=None):
         if self == partial_derivative_op:
-            return 1
+            return np.ones_like(self._value)
         else:
-            return 0
+            return np.zeros_like(self._value)
 
     def set_value(self, value):
         self._value = value
@@ -191,12 +191,13 @@ class MulOp(Operation):
         return self._left.forward() * self._right.forward()
 
     def grad(self, partial_derivative_op=None):
+        # 只支持标量
         return self._left.grad(partial_derivative_op) * self._right.forward() \
                + self._right.grad(partial_derivative_op) * self._left.forward()
 
 
 class MatmulOp(Operation):
-    '''矩阵乘法 TODO: shape check'''
+    '''矩阵乘法'''
     def __init__(self, left, right, name='matmul'):
         super().__init__(left, right, name=name)
 
@@ -204,8 +205,13 @@ class MatmulOp(Operation):
         return self._left.forward() @ self._right.forward()
 
     def grad(self, partial_derivative_op=None):
-        raise NotImplementedError(
-            "operation matmul doesn't support gradient calculating right now")
+        # 矩阵乘法太复杂了，链式法则不能用
+        # 交给 models 和 nn 里人工计算结果写死在代码里吧…
+        raise NotImplementedError
+
+
+# alias
+DotOp = MatmulOp
 
 
 class DivOp(Operation):
@@ -216,9 +222,10 @@ class DivOp(Operation):
         return self._left.forward() / self._right.forward()
 
     def grad(self, partial_derivative_op=None):
-        return (self._left.grad(partial_derivative_op) * self._right.forward() \
-                - self._right.grad(partial_derivative_op) * self._left.forward()) \
-               / self._right.forward() ** 2
+        partial = partial_derivative_op
+        return (self._left.grad(partial) * self._right.forward()
+                - self._right.grad(partial) * self._left.forward()
+               ) / self._right.forward() ** 2
 
 
 class PowOp(Operation):
@@ -233,6 +240,7 @@ class PowOp(Operation):
         return self._left.forward() ** self._right.forward()
 
     def grad(self, partial_derivative_op=None):
-        return self._right.forward() * (
-                self._left.forward() ** (self._right.forward() - 1)) \
-               * self._left.grad(partial_derivative_op)
+        power = self._right.forward()
+        _temp_a = self._left.grad(partial_derivative_op)
+        _temp_b = sum(self._left.forward() ** (power - 1))
+        return _temp_a * power * (_temp_b)

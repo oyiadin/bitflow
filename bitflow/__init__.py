@@ -1,9 +1,11 @@
-#coding=utf-8
+# coding=utf-8
 
 from . import session
 from . import graph
 from . import ops
+from . import nn
 from . import train
+from . import models
 
 Session = session.Session
 Graph = graph.Graph
