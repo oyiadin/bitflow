@@ -9,30 +9,46 @@ from . import ops
 __all__ = ['reduce_sum']
 
 
-class _ReduceSum(ops.Operation):
-    def __init__(self, tensor, name='reduce_sum'):
-        self._tensor = tensor
-        super().__init__(name=name)
-
-    def forward(self):
-        return sum((i for i in self._tensor.forward()))
-
-    def grad(self, partial_op=None):
-        _temp = self._tensor.grad(partial_op)
-        return _temp
-
-
 class Raw(ops.Operation):
-    def __init__(self, input_x, name='raw'):
-        self._input_x = input_x
+    def __init__(self, input, name='raw'):
         super().__init__(name=name)
+        self._input = input
 
     def forward(self):
-        return self._input_x.forward()
+        return self._input.forward()
 
     def grad(self, partial_op=None):
         return np.ones_like(partial_op.forward())
 
 
+class _ReduceSum(ops.Operation):
+    def __init__(self, input, name='reduce_sum'):
+        super().__init__(name=name)
+        self._input = input
+
+    def forward(self):
+        return sum((i for i in self._input.forward()))
+
+    def grad(self, partial_op=None):
+        _temp = self._input.grad(partial_op)
+        return _temp
+
+
+class _Sigmoid(ops.Operation):
+    def __init__(self, input, name='sigmoid'):
+        super().__init__(name=name)
+        self._input = input
+        c1 = ops.Constant(value=1)
+        self._output = ops.DivOp(c1, (ops.AddOp(c1, ops.ExpOp(
+            ops.NegOp(self._input)))))
+
+    def forward(self):
+        return self._output.forward()
+
+    def grad(self):
+        raise NotImplementedError
+
+
 # alias for convenience
 reduce_sum = _ReduceSum
+sigmoid = _Sigmoid

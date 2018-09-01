@@ -9,7 +9,8 @@ from . import utils
 
 __all__ = [
     'Constant', 'Placeholder', 'Variable',
-    'AddOp', 'SubOp', 'MulOp', 'MatmulOp', 'DotOp', 'DivOp', 'PowOp'
+    'NegOp', 'AddOp', 'SubOp', 'MulOp', 'MatmulOp', 'DotOp', 'DivOp', 'PowOp',
+    'ExpOp', 'LogOp',
 ]
 
 
@@ -44,6 +45,9 @@ class Tensor(object):
     def grad(self, partial_op=None):
         # 只支持标量式的自动求导
         raise NotImplementedError
+
+    def __neg__(self):
+        return NegOp(self)
 
     def __add__(self, rhs):
         return AddOp(self, rhs)
@@ -123,9 +127,7 @@ class Placeholder(Tensor):
         if not session.get_current_session().is_fed(self):
             raise RuntimeError("all placeholders must be fed by `feed_dict`\n"
                                "  [note] when dealing with {}".format(self))
-        ret = self._value
-        return ret
-        # 因为 self._value 是一个 property 对象，所以不能直接返回
+        return self._value
 
     def grad(self, partial_op=None):
         return 0
@@ -180,6 +182,17 @@ class Operation(Tensor):
         if len(objects) == 2:  # binary op
             self._left = objects[0]
             self._right = objects[1]
+
+
+class NegOp(Operation):
+    def __init__(self, x, name='negative'):
+        super().__init__(x, name=name)
+
+    def forward(self):
+        return -self._objs[0].forward()
+
+    def grad(self, partial_op=None):
+        return -self._objs[0].grad(partial_op)
 
 
 class AddOp(Operation):
@@ -268,3 +281,25 @@ class PowOp(Operation):
         deeper_grad = self._left.grad(partial_op)
         power_grad = power * self._left.forward() ** (power - 1)
         return deeper_grad * power_grad
+
+
+class ExpOp(Operation):
+    def __init__(self, exp, name='exp'):
+        super().__init__(exp, name=name)
+
+    def forward(self):
+        return np.exp(self._objs[0].forward())
+
+    def grad(self, partial_op=None):
+        return self._objs[0].grad(partial_op) * self.forward()
+
+
+class LogOp(Operation):
+    def __init__(self, x, name='log'):
+        super().__init__(x, name=name)
+
+    def forward(self):
+        return np.log(self._objs[0].forward())
+
+    def grad(self, partial_op=None):
+        return self._objs[0].grad(partial_op) * (1 / self._objs[0].forward())
