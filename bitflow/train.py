@@ -64,18 +64,41 @@ SGD = StochasticGradientDescentOptimizer = GradientDescentOptimizer
 
 
 class MomentumOptimizer(GradientDescentOptimizer):
-    """SGD 加上动量（惯性）的标准版本"""
-    def __init__(self, learning_rate=0.01, momentum=0.5,
+    """SGD 加上动量（惯性）的标准/nesterov版本"""
+    def __init__(self, learning_rate=0.01, momentum=0.5, use_nesterov=False,
                  name='MomentumOptimizer'):
         super().__init__(learning_rate, name=name)
         self._momentum = momentum
+        self._nesterov = use_nesterov
         self._velocity = {}
 
     def do_preparation(self, gradients: dict):
         """**就地**修改参数 gradients，并其返回修改后的值"""
         for k, v in gradients.items():
-            gradients[k] = self._velocity[k] = \
-                v + self._momentum * self._velocity.get(k, np.zeros_like(v))
+            delta = self._momentum * self._velocity.get(k, np.zeros_like(v))
+            gradients[k] = self._velocity[k] = v + delta
+
+    def compute_gradients(self, loss):
+        if not self._nesterov:
+            return super().compute_gradients(loss)
+
+        # 先保存现场 XD
+        trainable_variables = self._graph.get_trainable_variables_collection()
+        _old_values = {i: i.get_value() for i in trainable_variables}
+
+        # 挪到仅依靠惯性所能滚到的地方
+        for i in trainable_variables:
+            delta = self._learning_rate * self._momentum \
+                    * self._velocity.get(i, np.zeros_like(_old_values[i]))
+            i.set_value(_old_values[i] + delta)
+
+        # 计算此处的梯度
+        gradients = super().compute_gradients(loss)
+
+        # 回去原来的位置，然后返回刚才的梯度
+        for k, v in _old_values.items():
+            k.set_value(v)
+        return gradients
 
 
 class AdamOptimizer(GradientDescentOptimizer):
