@@ -60,7 +60,24 @@ class GradientDescentOptimizer(Optimizer):
             delta = gradients[variable] * self._learning_rate
             variable.set_value(variable.get_value() - delta)
 
-SGD = StochasticGradientDescentOptimizer = GradientDescentOptimizer
+
+class AdagradOptimizer(GradientDescentOptimizer):
+    def __init__(self, learning_rate=0.01, epsilon=1e-8, name='AdagradOptimizer'):
+        super().__init__(learning_rate, name=name)
+        self._epsilon = epsilon
+        self._accumulators = {}
+
+    def do_preparation(self, gradients: dict):
+        for k, v in gradients.items():
+            self._accumulators[k] = \
+                self._accumulators.get(k, np.zeros_like(v)) + v ** 2
+
+    def apply_gradients(self, gradients):
+        for variable in gradients:
+            real_rate = self._learning_rate / (
+                    np.sqrt(self._accumulators[variable]) + self._epsilon)
+            delta = gradients[variable] * real_rate
+            variable.set_value(variable.get_value() - delta)
 
 
 class MomentumOptimizer(GradientDescentOptimizer):
@@ -104,3 +121,12 @@ class MomentumOptimizer(GradientDescentOptimizer):
 class AdamOptimizer(GradientDescentOptimizer):
     # 假装已经写好了 =。=
     pass
+
+
+# alias
+SGD = StochasticGradientDescentOptimizer = GradientDescentOptimizer
+SGDM = MomentumOptimizer
+NAG = lambda *args, **kwargs: \
+    MomentumOptimizer(*args, **kwargs, use_nesterov=True)
+Adam = AdamOptimizer
+Adagrad = AdagradOptimizer
