@@ -22,8 +22,8 @@ print('generate successfully')
 
 
 with tf.Session() as sess:
-    model = tf.models.LinearRegression(units=(1, 1), learning_rate=0.0000001)
-    model.fit(train_X, train_Y, prompt_per_epochs=50, stop_when_delta=0.0000001)
+    model = tf.models.LinearRegression(units=(1, 1), learning_rate=0.0001)
+    model.fit(train_X, train_Y, prompt_per_epochs=1, stop_when_delta=0.0001)
 
     print('model fitted')
 
