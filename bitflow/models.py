@@ -8,6 +8,7 @@
 import numpy as np
 from . import nn
 from . import ops
+from . import utils
 from . import train
 from . import session
 
@@ -15,11 +16,13 @@ __all__ = ['LinearRegression']
 
 
 class Model(ops.Tensor):
-    """我是个魔鬼，把线性回归器之类封装好的模型也看作是 Tensor 对象 XD
-
-    这里先写上一些有别于 Tensor 的额外接口"""
-    def fit(self, *args, **kwargs):
-        raise NotImplementedError
+    """我是个魔鬼，把线性回归器之类封装好的模型也看作是 Tensor 对象 XD"""
+    def __init__(self, name='Model'):
+        super().__init__(name=name)
+        self._fitted = False
+        self._layer = None
+        self._loss = None
+        self._optimizer = None
 
     def grad(self, partial_op=None):
         """矩阵求导仅会在这个层面（以及激活函数）进行，不会往深处探
@@ -28,51 +31,12 @@ class Model(ops.Tensor):
         raise NotImplementedError
 
     def predict(self, pred_x):
-        raise NotImplementedError
+        if not self._fitted:
+            raise RuntimeError('you must call fit() before do any prediction')
 
-
-class _DenseLayer(ops.Tensor):
-    """由 R ^ units[0] --> R ^ units[1] 的一层 M-P 神经元模型"""
-    def __init__(self, units: tuple, activation, name='dense_layer'):
-        super().__init__(name=name)
-        try:
-            assert isinstance(units, (tuple, list))
-            assert len(units) == 2
-            assert isinstance(units[0], int)
-            assert isinstance(units[1], int)
-        except AssertionError:
-            raise ValueError("`units` must be a tuple or a list containing "
-                             "two integers")
-
-        self._activation = activation
-        self._X = ops.Placeholder()
-        self._y = ops.Placeholder()
-
-        self._W = ops.Variable(np.random.rand(*units))
-        self._b = ops.Variable(np.random.rand(1, units[1]))
-        # b 在参与计算时产生了 broadcast
-
-        self._z = self._X @ self._W + self._b
-        self._prediction = activation(self._z)
-
-    def forward(self):
-        return self._prediction.forward()
-
-    def grad(self, partial_op=None):
-        raise NotImplementedError
-
-
-class LinearRegression(Model):
-    def __init__(self, units: tuple, learning_rate=0.01,
-                 name='linear_regression'):
-        super().__init__(name=name)
-
-        self._layer = _DenseLayer(units, nn.Raw)
-        self._loss = nn.reduce_sum((self._layer - self._layer._y) ** 2)
-        self._optimizer = train.GradientDescentOptimizer(
-            learning_rate).minimize(self)
-
-        self._fitted = False
+        sess = session.get_current_session()
+        return sess.run(
+            self._layer, feed_dict={self._layer._X: pred_x})
 
     def fit(self, train_x, train_y, batch_size=5, epochs='auto',
             prompt_per_epochs=100, stop_when_delta=0.001):
@@ -123,6 +87,47 @@ class LinearRegression(Model):
             for epoch in range(epochs):
                 do_train_for_one_epoch()
 
+
+class _DenseLayer(ops.Tensor):
+    """由 R ^ units[0] --> R ^ units[1] 的一层 M-P 神经元模型"""
+    def __init__(self, units: tuple, activation, name='_DenseLayer'):
+        super().__init__(name=name)
+        try:
+            assert isinstance(units, (tuple, list))
+            assert len(units) == 2
+            assert isinstance(units[0], int)
+            assert isinstance(units[1], int)
+        except AssertionError:
+            raise ValueError("`units` must be a tuple or a list containing "
+                             "two integers")
+
+        self._activation = activation
+        self._X = ops.Placeholder()
+        self._y = ops.Placeholder()
+
+        self._W = ops.Variable(np.random.rand(*units))
+        self._b = ops.Variable(np.random.rand(1, units[1]))
+        # b 在参与计算时产生了 broadcast
+
+        self._z = self._X @ self._W + self._b
+        self._prediction = activation(self._z)
+
+    def forward(self):
+        return self._prediction.forward()
+
+    def grad(self, partial_op=None):
+        raise NotImplementedError
+
+
+class LinearRegression(Model):
+    def __init__(self, units: tuple, optimizer=train.GradientDescentOptimizer,
+                 name='LinearRegression', **kwargs):
+        super().__init__(name=name)
+
+        self._layer = _DenseLayer(units, nn.Raw)
+        self._loss = nn.reduce_sum((self._layer - self._layer._y) ** 2)
+        self._optimizer = optimizer(**kwargs).minimize(self)
+
     def grad(self, partial_op=None):
         # 我没法实现自动进行矩阵求导，只能以一整块公式作为整体
         # 事先手工计算，并在此写死在代码里边
@@ -142,10 +147,28 @@ class LinearRegression(Model):
         else:
             return np.zeros_like(partial_op.forward())
 
-    def predict(self, pred_x):
-        if not self._fitted:
-            raise RuntimeError('you must call fit() before do any prediction')
 
-        sess = session.get_current_session()
-        return sess.run(
-            self._layer, feed_dict={self._layer._X: pred_x})
+class LogisticRegression(Model):
+    """仅支持二分类"""
+    def __init__(self, units: tuple, optimizer=train.GradientDescentOptimizer,
+                 name='LogisticRegression', **kwargs):
+        super().__init__(name=name)
+        assert len(units) == 1 or units[1] == 1
+        # 仅支持二分类，所以确保要么省略输出维度，要么 units[1] == 1
+
+        self._layer = _DenseLayer(units, nn.sigmoid)
+        self._loss = - (self._layer._y.T @ ops.LogOp(self._layer)) \
+                     - (1 - self._layer._y).T @ ops.LogOp(1 - self._layer)
+        self._optimizer = optimizer(**kwargs).minimize(self)
+
+    def grad(self, partial_op=None):
+        X = self._layer._X.forward()
+        y = self._layer._y.forward()
+        pred = self._layer.forward()
+        if partial_op == self._layer._W:
+            return X.T @ (pred - y)
+        elif partial_op == self._layer._b:
+            _temp = pred - y
+            return sum((i for i in _temp))
+        else:
+            return np.zeros_like(partial_op.forward())
