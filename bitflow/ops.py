@@ -46,6 +46,10 @@ class Tensor(object):
         # 只支持标量式的自动求导
         raise NotImplementedError
 
+    @property
+    def T(self):
+        return TransposeOp(self)
+
     def __neg__(self):
         return NegOp(self)
 
@@ -182,6 +186,17 @@ class Operation(Tensor):
         if len(objects) == 2:  # binary op
             self._left = objects[0]
             self._right = objects[1]
+
+
+class TransposeOp(Operation):
+    def __init__(self, x, name='transpose'):
+        super().__init__(x, name=name)
+
+    def forward(self):
+        return self._objs[0].forward().T
+
+    def grad(self, partial_op=None):
+        raise NotImplementedError
 
 
 class NegOp(Operation):
