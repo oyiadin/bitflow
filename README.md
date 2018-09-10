@@ -36,10 +36,95 @@ with bf.Session() as sess:
     # sess.run(result)
     # 报错: 必须先对 placeholder 投喂数据
 
-# 输出：
+# Output:
 # bf.Tensor(A Constant:0_105bf2ef0)
 # bf.Tensor(constant:0_105bf2eb8)
 # bf.Tensor(add:1_106f9f588)
 # 2
 # 7
+```
+
+### 标量的自动求导
+
+```python
+import bitflow as bf
+
+x = bf.Variable(2)
+y = bf.Variable(1)
+z = (x * y + x - 1) ** 2 + y
+
+with bf.Session() as sess:
+    print('z =', sess.run(z))
+    print('∂z/∂x =', z.grad(x))
+    print('∂z/∂y =', z.grad(y))
+
+# z = (2 * 1 + 2 - 1) ** 2 + 1
+#   = 10
+# ∂z/∂x = 2 * (x * y + x - 1) * (y + 1)
+#       = 2 * (2 * 1 + 2 - 1) * (1 + 1)
+#       = 12
+# ∂z/∂y = 2 * (x * y + x - 1) * x + 1
+#       = 2 * (2 * 1 + 2 - 1) * 2 + 1
+#       = 13
+
+# Output:
+# z = 10
+# ∂z/∂x = 12
+# ∂z/∂y = 13
+```
+
+### 线性回归的标准实现 (标量)
+
+```python
+import numpy as np
+import bitflow as bf
+
+EPOCHS = 50
+LEARNING_RATE = 0.003
+HOW_MANY_POINTS = 100
+
+# generate some random points
+true_w = int(np.random.randn() * 5)
+true_b = int(np.random.randn() * 5)
+
+train_x = np.random.randn(HOW_MANY_POINTS)
+noise = np.random.randn(HOW_MANY_POINTS)  # random noises
+train_y = true_w * train_x + true_b + noise
+
+# create some necessary tensors
+x = bf.placeholder()  # sample
+y = bf.placeholder()  # label
+w = bf.Variable(np.random.rand())
+b = bf.Variable(np.random.rand())
+pred = x * w + b
+loss = bf.nn.reduce_sum((pred - y) ** 2)
+optimizer = bf.train.GradientDescentOptimizer(
+    learning_rate=LEARNING_RATE).minimize(loss)
+
+# train our linear regression model
+with bf.Session() as sess:
+    for epoch in range(1, EPOCHS):
+        for _x, _y in zip(train_x, train_y):
+            sess.run(optimizer, feed_dict={x: _x, y: _y})
+        if not epoch % 1:
+            print('Epoch #{}, loss={}, w={}, b={}'.format(epoch,
+                *sess.run(loss, w, b, feed_dict={x: train_x, y: train_y})))
+
+    print('model trained successfully')
+    print('final value: w = {}, b = {}'.format(*sess.run(w, b)))
+    print('while the true_w = {}, true_b = {}'.format(true_w, true_b))
+
+# Output:
+# Epoch #1, loss=160.02968143915703, w=0.9578589353193588, b=1.149858066725097
+# Epoch #2, loss=116.6527173429976, w=1.0152174988683842, b=1.5060229892078008
+# Epoch #3, loss=104.4700270394287, w=1.0280963017191411, b=1.6986649076737153
+# Epoch #4, loss=100.95945166619198, w=1.0251595318310058, b=1.8037958297945236
+# ......
+# Epoch #46, loss=99.47348856016569, w=0.9946397244743984, b=1.935687261742318
+# Epoch #47, loss=99.47348856014511, w=0.9946397244597486, b=1.935687261757443
+# Epoch #48, loss=99.47348856013275, w=0.9946397244509715, b=1.9356872617665033
+# Epoch #49, loss=99.47348856012535, w=0.9946397244457121, b=1.9356872617719318
+# model trained successfully
+# final value: w = 0.9946397244457121, b = 1.9356872617719318
+# while the true_w = 1, true_b = 2
 ```
