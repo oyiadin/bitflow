@@ -84,8 +84,8 @@ LEARNING_RATE = 0.003
 HOW_MANY_POINTS = 100
 
 # generate some random points
-true_w = int(np.random.randn() * 5)
-true_b = int(np.random.randn() * 5)
+true_w = np.random.randint(0, 5)
+true_b = np.random.randint(0, 5)
 
 train_x = np.random.randn(HOW_MANY_POINTS)
 noise = np.random.randn(HOW_MANY_POINTS)  # random noises
@@ -128,3 +128,64 @@ with bf.Session() as sess:
 # final value: w = 0.9946397244457121, b = 1.9356872617719318
 # while the true_w = 1, true_b = 2
 ```
+
+### 使用封装好的模型 (支持矩阵计算)
+
+代码仅展示线性回归模型，目前，本项目已经封装好了如下模型：
+
+* 线性回归 / Linear Regression
+* 逻辑回归 / Logistic Regression
+* 多层感知机 / Multilayer Perceptron
+
+```python
+import numpy as np
+import bitflow as bf
+import matplotlib.pyplot as plt
+
+LEARNING_RATE = 0.003
+HOW_MANY_POINTS = 100
+
+# generate some random points
+true_w = np.random.randint(0, 5, (1, 1))
+true_b = np.random.randint(0, 5, (1, 1))
+
+train_x = np.random.randn(HOW_MANY_POINTS, 1)
+noise = np.random.randn(HOW_MANY_POINTS, 1)  # random noises
+train_y = true_w * train_x + true_b + noise
+
+# train our linear regression model
+with bf.Session() as sess:
+    model = bf.models.LinearRegression(units=(1, 1), learning_rate=LEARNING_RATE)
+    model.fit(train_x, train_y, prompt_per_epochs=1)
+
+    print('model fitted')
+    print('final value: w = {}, b = {}'.format(
+        *sess.run(model._layer.W, model._layer.b)))
+    print('while the true_w = {}, true_b = {}'.format(true_w, true_b))
+
+# Output:
+# Epoch #0001, loss=[427.52792725]
+# Epoch #0002, loss=[197.80004282]
+# Epoch #0003, loss=[134.50140113]
+# Epoch #0004, loss=[116.32268854]
+# Epoch #0005, loss=[110.73005242]
+# Epoch #0006, loss=[108.82089634]
+# Epoch #0007, loss=[108.07755656]
+# Epoch #0008, loss=[107.74750746]
+# Epoch #0009, loss=[107.58509641]
+# Epoch #0010, loss=[107.49976008]
+# model fitted
+# final value: w = [[3.94885943]], b = [[1.75436135]]
+# while the true_w = [[4]], true_b = [[2]]
+```
+
+### 常见优化器
+
+目前已经实现了以下优化器：
+
+* Gradient Descent
+* Momentum
+* Nesterov Acclerated Gradient
+* Adagrad
+
+都存在于 `bf.train` 里边，代码应该就不用贴了～
