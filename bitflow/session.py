@@ -45,6 +45,8 @@ class Session(object):
             key.feed(feed_dict[key])
 
         ret = []
+        if isinstance(tensors[0], (tuple, list)):
+            tensors = tensors[0]
         for tensor in tensors:
             ret.append(tensor.forward())
         return ret if len(ret) != 1 else ret[0]

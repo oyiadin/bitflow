@@ -24,3 +24,6 @@ divide      = div = ops.DivOp
 power       = pow = ops.PowOp
 exponent    = exp = ops.ExpOp
 log         =       ops.LogOp
+
+reduce_sum = nn.reduce_sum
+sigmoid = nn.sigmoid

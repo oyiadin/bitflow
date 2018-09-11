@@ -4,7 +4,10 @@ import numpy as np
 from . import ops
 from . import graph
 
-__all__ = ['GradientDescentOptimizer', 'AdamOptimizer']
+__all__ = [
+    'GradientDescentOptimizer', 'MomentumOptimizer',
+    'NesterovAcceleratedGradient', 'Adagrad', 'AdamOptimizer'
+]
 
 
 class OptimizeOp(ops.Operation):
@@ -126,7 +129,7 @@ class AdamOptimizer(GradientDescentOptimizer):
 # alias
 SGD = StochasticGradientDescentOptimizer = GradientDescentOptimizer
 SGDM = MomentumOptimizer
-NAG = lambda *args, **kwargs: \
+NAG = NesterovAcceleratedGradient = lambda *args, **kwargs: \
     MomentumOptimizer(*args, **kwargs, use_nesterov=True)
 Adam = AdamOptimizer
 Adagrad = AdagradOptimizer

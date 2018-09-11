@@ -6,7 +6,7 @@
 import numpy as np
 from . import ops
 
-__all__ = ['reduce_sum']
+__all__ = ['reduce_sum', 'sigmoid']
 
 
 class Raw(ops.Operation):
@@ -45,7 +45,7 @@ class _Sigmoid(ops.Operation):
     def forward(self):
         return self._output.forward()
 
-    def grad(self):
+    def grad(self, partial_op=None):
         raise NotImplementedError
 
 

@@ -11,7 +11,7 @@ from . import ops
 from . import train
 from . import session
 
-__all__ = ['LinearRegression']
+__all__ = ['LinearRegression', 'LogisticRegression', 'DenseLayers']
 
 
 class Model(ops.Tensor):
